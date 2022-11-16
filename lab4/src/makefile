@@ -1,27 +1,23 @@
 CC=gcc
-CFLAGS=-I.
-all : parallel_min_max zombie process_memory psum
+path=/home/runner/oslab2019/lab4/src
 
-psum : Summa.o utils.o Summa.h utils.h
-	$(CC) -o psum utils.o Summa.o parallel_sum.c -lpthread $(CFLAGS)
+parallel_min_max: libutils.so
+	$(CC) $(path)/parallel_min_max.c -L$(path) -lutils -o $(path)/parallel_min_max
 
-process_memory : process_memory.c
-	$(CC) -o process_memory process_memory.c $(CFLAGS)
+zombie_example: zombie_example.c
+	$(CC) zombie_example.c -o zombie_example
 
-zombie : zombie.c
-	$(CC) -o zombie zombie.c $(CFLAGS)
+process_memory: process_memory.c
+	$(CC) process_memory.c -o process_memory
 
-parallel_min_max : utils.o find_min_max.o utils.h find_min_max.h
-	$(CC) -o parallel_min_max utils.o find_min_max.o parallel_min_max.c $(CFLAGS)
-	
-Summa.o : Summa.h
-	$(CC) -o Summa.o -c Summa.c $(CFLAGS)
+parallel_sum : parallel_sum.c utils.o
+	$(CC) $(path)/parallel_sum.c -L$(path) -lutils  -pthread -o parallel_sum
 
-utils.o : utils.h
-	$(CC) -o utils.o -c utils.c $(CFLAGS)
+libutils.so: utils.o
+	$(CC) -shared utils.o libutils.so
 
-find_min_max.o : utils.h find_min_max.h
-	$(CC) -o find_min_max.o -c find_min_max.c $(CFLAGS)
+utils.o : utils.c
+	$(CC) -c -fPIC utils.c utils.o
 
 clean :
-	rm utils.o find_min_max.o Summa.o parallel_min_max zombie process_memory psum
+	rm parallel_min_max.o parallel_min_max parallel_synch.txt zombie_example.o zombie_example process_memory.o process_memory parallel_sum.o parallel_sum

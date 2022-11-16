@@ -7,82 +7,77 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-
 #include <getopt.h>
-#include <stdbool.h>
 
 #define SADDR struct sockaddr
 #define SLEN sizeof(struct sockaddr_in)
 
-int main(int argc, char *argv[])
-{
-
-  int port = -1;
-  int bufsize = -1;
-  while (true)
+int main(int argc, char *argv[]) {
+  
+  int serv_port = 20001;
+  int bufsize = 1024;
+  
+   while (1) 
   {
     int current_optind = optind ? optind : 1;
 
-    static struct option options[] = {{"bufsize", required_argument, 0, 0},
-                                      {"port", required_argument, 0, 0},
+    static struct option options[] = {{"serv_port", required_argument, 0, 0},
+                                      {"bufsize", required_argument, 0, 0},
                                       {0, 0, 0, 0}};
 
     int option_index = 0;
     int c = getopt_long(argc, argv, "", options, &option_index);
 
-    if (c == -1)
-      break;
+    if (c == -1) break;
 
-    switch (c)
+    switch (c) 
     {
-    case 0:
-    {
-      switch (option_index)
-      {
       case 0:
-        bufsize = atoi(optarg);
-        if (bufsize < 0)
+        switch (option_index) 
         {
-          printf("bufsize should be a positive integer!\n");
-          return -1;
-        }
-        break;
-      case 1:
-        port = atoi(optarg);
-        if (port < 1 || port > 65535)
-        {
-          printf("port should be an integer between 1 and 65535!\n");
-          return -1;
-        }
-        break;
-      default:
-        printf("Index %d is out of options\n", option_index);
-      }
-    }
-    break;
-
-    case '?':
-      printf("Unknown argument\n");
+          case 0:
+            serv_port = atoi(optarg);
+            if (serv_port <= 0) serv_port = -1;
+          break;
+          case 1:
+            bufsize = atoi(optarg);
+            if (bufsize <= 0) bufsize = -1;
+            break;
+          defalut:
+            printf("Index %d is out of options\n", option_index);
+          }
       break;
-    default:
-      fprintf(stderr, "getopt returned character code 0%o?\n", c);
+    
+      case '?':
+        printf("Some error has been occurred. getopt_long returned ?\n");
+        return 1;
+        break;
+
+      default:
+        printf("getopt returned character code 0%o?\n", c);
     }
   }
 
-  if (bufsize == -1 || port == -1)
+  if (optind < argc) 
   {
-    fprintf(stderr, "Using: %s --bufsize 100 --port 5050\n",
-            argv[0]);
+    printf("Has at least one no option argument\n");
+    return 1;
+  }
+
+  if (serv_port == -1 || bufsize == -1) 
+  {
+    printf("Usage: %s --serv_port \"num\" --bufsize \"num\"\n",
+           argv[0]);
     return 1;
   }
 
   int sockfd, n;
-  char mesg[bufsize], ipadr[16];
+  char mesg[(const int)bufsize], ipadr[16];
   struct sockaddr_in servaddr;
   struct sockaddr_in cliaddr;
 
-  if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-  {
+  
+  if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
     perror("socket problem");
     exit(1);
   }
@@ -90,21 +85,18 @@ int main(int argc, char *argv[])
   memset(&servaddr, 0, SLEN);
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  servaddr.sin_port = htons(port);
+  servaddr.sin_port = htons(serv_port);
 
-  if (bind(sockfd, (SADDR *)&servaddr, SLEN) < 0)
-  {
+  if (bind(sockfd, (SADDR *)&servaddr, SLEN) < 0) {
     perror("bind problem");
     exit(1);
   }
   printf("SERVER starts...\n");
 
-  while (1)
-  {
+  while (1) {
     unsigned int len = SLEN;
 
-    if ((n = recvfrom(sockfd, mesg, bufsize, 0, (SADDR *)&cliaddr, &len)) < 0)
-    {
+    if ((n = recvfrom(sockfd, mesg, bufsize, 0, (SADDR *)&cliaddr, &len)) < 0) {
       perror("recvfrom");
       exit(1);
     }
@@ -114,8 +106,7 @@ int main(int argc, char *argv[])
            inet_ntop(AF_INET, (void *)&cliaddr.sin_addr.s_addr, ipadr, 16),
            ntohs(cliaddr.sin_port));
 
-    if (sendto(sockfd, mesg, n, 0, (SADDR *)&cliaddr, len) < 0)
-    {
+    if (sendto(sockfd, mesg, n, 0, (SADDR *)&cliaddr, len) < 0) {
       perror("sendto");
       exit(1);
     }

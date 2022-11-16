@@ -2,22 +2,19 @@
 
 #include <limits.h>
 
-struct MinMax GetMinMax(int *array, unsigned int begin, unsigned int end)
-{
-      struct MinMax min_max;
-      min_max.min = INT_MAX;
-      min_max.max = INT_MIN;
-      int min, max;
-      min=array[begin];
-      max=array[begin];
-      for (int i=begin; i<end; i++)
-      {
-          if (array[i]<min)
-              min=array[i];
-          else if (array[i]>max)
-              max=array[i];
-      }
-      min_max.min=min;
-      min_max.max=max;
-      return min_max;
+struct MinMax GetMinMax(int *array, unsigned int begin, unsigned int end) {
+  struct MinMax min_max;
+  min_max.min = INT_MAX;
+  min_max.max = INT_MIN;
+
+
+  for(int i = begin; i < end; i++)
+    {
+      //printf("%d ", array[i]);
+      if (array[i] <= min_max.min) min_max.min = array[i];
+      if (array[i] >= min_max.max) min_max.max = array[i];
+    }
+  //printf("\n");
+  
+  return min_max;
 }

@@ -1,24 +1,17 @@
-.PHONY: all clean
-# Это комментарий, который говорит, что переменная CC указывает компилятор, используемый для сборки
 CC=gcc
-#Это еще один комментарий. Он поясняет, что в переменной CFLAGS лежат флаги, которые передаются компилятору
-CFLAGS=-L. -llibrary
+path=/home/runner/oslab2019/lab6/src
 
-all : server client
+client: client.c
+	$(CC) $(path)/client.c -L$(path) -lutils -pthread -o $(path)/client
 
-server : server.c liblibrary.so
-	$(CC) -pthread -o server server.c $(CFLAGS)
+server: server.c
+	$(CC) $(path)/server.c -L$(path) -lutils -pthread -o $(path)/server
 
-client : client.c liblibrary.so
-	$(CC) -o client client.c $(CFLAGS)
+libutils.so: utils.o
+	$(CC) -shared utils.o -o libutils.so
 
-liblibrary.so : library.o
-	$(CC) -shared -o liblibrary.so library.o
+utils.o : utils.c
+	$(CC) -c -fPIC utils.c -o utils.o
 
-library.o : library.c
-	$(CC) -fPIC -c library.c
-
-# Цель clean. Она традиционно используется для быстрой очистки всех результатов сборки проекта.
-# Очистка запускается так: make -f makefile clean
 clean :
-	rm server client library.o liblibrary.so
+	rm client server
