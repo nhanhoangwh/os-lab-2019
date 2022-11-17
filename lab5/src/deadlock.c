@@ -48,13 +48,13 @@ void do_one_thing(int *pnum_times) {
   int work;
   for (i = 0; i < 50; i++) {
     pthread_mutex_lock(&mut_1);
-    usleep(500);
+    sleep(5);
     printf("doing one thing\n");
     pthread_mutex_lock(&mut_2);
     work = *pnum_times;
     printf("counter = %d\n", work);
     work++; /* increment, but not write */
-    for (k = 0; k < 500000; k++)
+    for (k = 0; k < 5000; k++)
       ;                 /* long cycle */
     *pnum_times = work; /* write back */
     pthread_mutex_unlock(&mut_2);
@@ -68,13 +68,13 @@ void do_another_thing(int *pnum_times) {
   int work;
   for (i = 0; i < 50; i++) {
     pthread_mutex_lock(&mut_2);
-    usleep(500);
+    sleep(5);
     printf("doing another thing\n");
     pthread_mutex_lock(&mut_1);
     work = *pnum_times;
     printf("counter = %d\n", work);
     work++; /* increment, but not write */
-    for (k = 0; k < 500000; k++)
+    for (k = 0; k < 5000; k++)
       ;                 /* long cycle */
     *pnum_times = work; /* write back */
     pthread_mutex_unlock(&mut_1);

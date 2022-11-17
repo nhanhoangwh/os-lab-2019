@@ -1,16 +1,22 @@
+.PHONY: all clean
+# Это комментарий, который говорит, что переменная CC указывает компилятор, используемый для сборки
 CC=gcc
 
-tcpclient: tcpclient.c
-	$(CC) tcpclient.c -o tcpclient
+all : tcpclient tcpserver udpclient udpserver
 
-tcpserver: tcpserver.c
-	$(CC) tcpserver.c -o tcpserver
+tcpclient : tcpclient.c
+	$(CC) -o tcpclient tcpclient.c
 
-udpclient: udpclient.c
-	$(CC) udpclient.c -o udpclient
+tcpserver : tcpserver.c
+	$(CC) -o tcpserver tcpserver.c
 
-udpserver: udpserver.c
-	$(CC) udpserver.c -o udpserver
+udpclient : udpclient.c
+	$(CC) -o udpclient udpclient.c
 
+udpserver : udpserver.c
+	$(CC) -o udpserver udpserver.c
+
+# Цель clean. Она традиционно используется для быстрой очистки всех результатов сборки проекта.
+# Очистка запускается так: make -f makefile clean
 clean :
 	rm tcpclient tcpserver udpclient udpserver

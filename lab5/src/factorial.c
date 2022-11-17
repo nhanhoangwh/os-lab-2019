@@ -22,9 +22,9 @@ struct factl_args
 };
 
 void factorial(struct factl_args*);
-void print_result(int);
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 int result = 1;
+int resultmod = 1;
 
 int main(int argc, char **argv) {
   int pnum = -1;
@@ -135,7 +135,8 @@ int main(int argc, char **argv) {
      }
   }
 
-  print_result(result);
+  printf("\nAll done, facterial %d = %d\n",k,result);
+  printf(" %d! mod %d = %d\n", k, mod, resultmod );
 
   return 0;
 }
@@ -146,16 +147,15 @@ void factorial(struct factl_args* args) {
   int mod = args->mod;
   int thread_number = args->thread_number;
   
-  pthread_mutex_lock(&mut);
   for (int i = start; i <= end; i++) {
-    //printf("doing one thing\n");
-    if (i % mod != 0)
-        result *= i;
-    printf("thread %d: result = %d\n", thread_number, result);
+    pthread_mutex_lock(&mut);
+
+    result *= i;
+    if(resultmod != 0)
+    	resultmod = result % mod;
+    printf("i: %d --- result fact = %d ---result mod %d = %d\n", i , result, mod, resultmod);
+    
+    pthread_mutex_unlock(&mut);
   }
-  pthread_mutex_unlock(&mut);
 }
 
-void print_result(int result) {
-  printf("\nAll done, mod(k!) = %d\n", result);
-}

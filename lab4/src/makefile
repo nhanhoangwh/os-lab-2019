@@ -1,23 +1,32 @@
+# Это комментарий, который говорит, что переменная CC указывает компилятор, используемый для сборки
 CC=gcc
-path=/home/runner/oslab2019/lab4/src
+#Это еще один комментарий. Он поясняет, что в переменной CFLAGS лежат флаги, которые передаются компилятору
+CFLAGS=-I.
 
-parallel_min_max: libutils.so
-	$(CC) $(path)/parallel_min_max.c -L$(path) -lutils -o $(path)/parallel_min_max
+all : parallel_min_max zombie process_memory
 
-zombie_example: zombie_example.c
-	$(CC) zombie_example.c -o zombie_example
+zombie : zombie.c
+	$(CC) -o zombie zombie.c
 
-process_memory: process_memory.c
-	$(CC) process_memory.c -o process_memory
+process_memory : process_memory.c
+	$(CC) -o process_memory process_memory.c
 
-parallel_sum : parallel_sum.c utils.o
-	$(CC) $(path)/parallel_sum.c -L$(path) -lutils  -pthread -o parallel_sum
+parallel_min_max : utils.o find_min_max.o utils.h find_min_max.h
+	$(CC) -o parallel_min_max utils.o find_min_max.o parallel_min_max.c $(CFLAGS)
 
-libutils.so: utils.o
-	$(CC) -shared utils.o libutils.so
+utils.o : utils.h
+	$(CC) -o utils.o -c utils.c
 
-utils.o : utils.c
-	$(CC) -c -fPIC utils.c utils.o
+find_min_max.o : utils.h find_min_max.h
+	$(CC) -o find_min_max.o -c find_min_max.c $(CFLAGS)
 
+parallel_sum.o : parallel_sum.c
+	$(CC) -o parallel_sum.o -c parallel_sum.c  $(CFLAGS)
+	
+parallel_sum.out : parallel_sum.o utils.o utils.h
+	$(CC) -o parallel_sum.out parallel_sum.o utils.o -pthread $(CFLAGS)
+
+# Цель clean. Она традиционно используется для быстрой очистки всех результатов сборки проекта.
+# Очистка запускается так: make -f makefile clean
 clean :
-	rm parallel_min_max.o parallel_min_max parallel_synch.txt zombie_example.o zombie_example process_memory.o process_memory parallel_sum.o parallel_sum
+	rm zombie process_memory parallel_min_max utils.o find_min_max.o
