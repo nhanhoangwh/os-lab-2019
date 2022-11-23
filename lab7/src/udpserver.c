@@ -7,25 +7,24 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <unistd.h>
-#include <stdbool.h>
 #include <getopt.h>
 
-//#define SERV_PORT 20001
-//#define BUFSIZE 1024
+
 #define SADDR struct sockaddr
 #define SLEN sizeof(struct sockaddr_in)
 
-int main(int argc, char **argv) {
+int main(int argc, char *argv[]) {
+  int buf_size = -1;
+  int port = -1;
+  int sockfd, n;
+  struct sockaddr_in servaddr;
+  struct sockaddr_in cliaddr;
 
-  int SERV_PORT = -1;
-  int BUFSIZE = -1;
-
-  while (true) {
+  while (1) {
     int current_optind = optind ? optind : 1;
 
-    static struct option options[] = {{"BUFSIZE", required_argument, 0, 0},
-                                      {"SERV_PORT", required_argument, 0, 0},
+    static struct option options[] = {{"buf_size", required_argument, 0, 0},
+                                      {"port", required_argument, 0, 0},
                                       {0, 0, 0, 0}};
 
     int option_index = 0;
@@ -38,22 +37,16 @@ int main(int argc, char **argv) {
     case 0: {
       switch (option_index) {
       case 0:
-        BUFSIZE = atoi(optarg);
-        // TODO: your code here
-        if (BUFSIZE <= 0)
-            {
-                printf("Invalid arguments (BUFSIZE)!\n");
-                exit(EXIT_FAILURE);
-            }
+        if ((buf_size = atoi(optarg)) == 0) {
+          printf("Error: bad buf_size value\n");
+          return -1;
+        }
         break;
       case 1:
-        SERV_PORT = atoi(optarg);
-        // TODO: your code here
-        if (SERV_PORT <= 0)
-            {
-                printf("Invalid arguments (SERV_PORT)!\n");
-                exit(EXIT_FAILURE);
-            }
+        if ((port = atoi(optarg)) == 0) {
+          printf("Error: bad port value\n");
+          return -1;
+        }
         break;
       default:
         printf("Index %d is out of options\n", option_index);
@@ -61,27 +54,19 @@ int main(int argc, char **argv) {
     } break;
 
     case '?':
-      printf("Unknown argument\n");
+      printf("Arguments error\n");
       break;
     default:
       fprintf(stderr, "getopt returned character code 0%o?\n", c);
     }
   }
-  
-  if (BUFSIZE == -1 || SERV_PORT == -1) {
-    fprintf(stderr, "Using: %s --BUFSIZE 1024 --SERV_PORT 20001\n", argv[0]);
-    return 1;
-  }
 
-  int sockfd, n;
-  char mesg[BUFSIZE], ipadr[16];
-  struct sockaddr_in servaddr;
-  struct sockaddr_in cliaddr;
-  
-  if (argc < 2) {
-    printf("Too few arguments \n");
-    exit(1);
+  if (buf_size == -1 || port == -1) {
+    fprintf(stderr, "Using: %s --buf_size [NUMBER] --port [NUMBER]\n",
+            argv[0]);
+    return -1;
   }
+  char mesg[buf_size], ipadr[16];
 
   if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
     perror("socket problem");
@@ -91,18 +76,19 @@ int main(int argc, char **argv) {
   memset(&servaddr, 0, SLEN);
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  servaddr.sin_port = htons(SERV_PORT);
+  servaddr.sin_port = htons(port);
 
   if (bind(sockfd, (SADDR *)&servaddr, SLEN) < 0) {
     perror("bind problem");
     exit(1);
   }
-  printf("SERVER starts...\n");
+  printf("SERVER started\n");
 
   while (1) {
     unsigned int len = SLEN;
 
-    if ((n = recvfrom(sockfd, mesg, BUFSIZE, 0, (SADDR *)&cliaddr, &len)) < 0) {
+
+    if ((n = recvfrom(sockfd, mesg, buf_size, 0, (SADDR *)&cliaddr, &len)) < 0) {
       perror("recvfrom");
       exit(1);
     }
@@ -112,9 +98,12 @@ int main(int argc, char **argv) {
            inet_ntop(AF_INET, (void *)&cliaddr.sin_addr.s_addr, ipadr, 16),
            ntohs(cliaddr.sin_port));
 
+   
     if (sendto(sockfd, mesg, n, 0, (SADDR *)&cliaddr, len) < 0) {
       perror("sendto");
       exit(1);
     }
   }
+  close(sockfd);
 }
+//./udpserver.out --buf_size 10 --port 20001

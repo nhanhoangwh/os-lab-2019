@@ -1,20 +1,7 @@
-.PHONY: all clean
-# Это комментарий, который говорит, что переменная CC указывает компилятор, используемый для сборки
-CC=gcc
-#Это еще один комментарий. Он поясняет, что в переменной CFLAGS лежат флаги, которые передаются компилятору
-CFLAGS= -I.
-
-all : server client
-
-server : server.c library.o library.h
-	$(CC) -pthread -o server server.c library.o $(CFLAGS)
-
-client : client.c library.o library.h
-	$(CC) -pthread -o client client.c library.o $(CFLAGS)
-
-library.o : library.h
-	$(CC) -o library.o -c library.c $(CFLAGS)
-# Цель clean. Она традиционно используется для быстрой очистки всех результатов сборки проекта.
-# Очистка запускается так: make -f makefile clean
-clean :
-	rm server client library.o
+all: server client MultModulo
+MultModulo: MultModulo.c MultModulo.h
+	gcc -o MultModulo.o -c MultModulo.c -std=c99
+client: client.c MultModulo
+	gcc -o client.out client.c MultModulo.o -lpthread -lm -std=c99
+server: server.c MultModulo
+	gcc -o server.out server.c MultModulo.o -lpthread -lm -std=c99

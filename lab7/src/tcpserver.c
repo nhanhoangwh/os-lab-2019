@@ -2,28 +2,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
-#include <getopt.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <getopt.h>
+#include <errno.h>
 
-//#define SERV_PORT 10050
-//#define BUFSIZE 100
+#define VERBOSE
 #define SADDR struct sockaddr
 
 int main(int argc, char *argv[]) {
   const size_t kSize = sizeof(struct sockaddr_in);
 
-  int SERV_PORT = -1;
-  int BUFSIZE = -1;
+  int lfd, cfd;
+  int nread;
+  struct sockaddr_in servaddr;
+  struct sockaddr_in cliaddr;
+  int buf_size = -1;
+  int port = -1;
 
-  while (true) {
+  while (1) {
     int current_optind = optind ? optind : 1;
 
-    static struct option options[] = {{"SERV_PORT", required_argument, 0, 0},
-                                      {"BUFSIZE", required_argument, 0, 0},
+    static struct option options[] = {{"buf_size", required_argument, 0, 0},
+                                      {"port", required_argument, 0, 0},
                                       {0, 0, 0, 0}};
 
     int option_index = 0;
@@ -36,22 +39,16 @@ int main(int argc, char *argv[]) {
     case 0: {
       switch (option_index) {
       case 0:
-        SERV_PORT = atoi(optarg);
-        // TODO: your code here
-        if (SERV_PORT <= 0)
-            {
-                printf("Invalid arguments (SERV_PORT)!\n");
-                exit(EXIT_FAILURE);
-            }
+        if ((buf_size = atoi(optarg)) == 0) {
+          printf("Error: bad buf_size value\n");
+          return -1;
+        }
         break;
       case 1:
-        BUFSIZE = atoi(optarg);
-        // TODO: your code here
-        if (BUFSIZE <= 0)
-            {
-                printf("Invalid arguments (BUFSIZE)!\n");
-                exit(EXIT_FAILURE);
-            }
+        if ((port = atoi(optarg)) == 0) {
+          printf("Error: bad port value\n");
+          return -1;
+        }
         break;
       default:
         printf("Index %d is out of options\n", option_index);
@@ -59,55 +56,68 @@ int main(int argc, char *argv[]) {
     } break;
 
     case '?':
-      printf("Unknown argument\n");
+      printf("Arguments error\n");
       break;
     default:
       fprintf(stderr, "getopt returned character code 0%o?\n", c);
     }
   }
-  
-  if (SERV_PORT == -1 || BUFSIZE == -1) {
-    fprintf(stderr, "Using: %s --SERV_PORT 10050 --BUFSIZE 100\n", argv[0]);
-    return 1;
+
+  if (buf_size == -1 || port == -1) {
+    fprintf(stderr, "Using: %s --buf_size [NUMBER] --port [NUMBER]\n",
+            argv[0]);
+    return -1;
   }
 
-
-  int lfd, cfd;
-  int nread;
-  char buf[BUFSIZE];
-  struct sockaddr_in servaddr;
-  struct sockaddr_in cliaddr;
+  char buf[buf_size];
 
   if ((lfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     perror("socket");
     exit(1);
   }
+#ifdef VERBOSE
+  printf("Socket %d created\n", lfd);
+#endif
 
   memset(&servaddr, 0, kSize);
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  servaddr.sin_port = htons(SERV_PORT);
+  servaddr.sin_port = htons(port);
+
+  int opt_val = 1;
+  setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
 
   if (bind(lfd, (SADDR *)&servaddr, kSize) < 0) {
     perror("bind");
     exit(1);
   }
 
+#ifdef VERBOSE
+  printf("Socket %d bound to %d:%d\n", lfd, servaddr.sin_addr.s_addr, ntohs(servaddr.sin_port));
+#endif
+
   if (listen(lfd, 5) < 0) {
     perror("listen");
     exit(1);
   }
+
+#ifdef VERBOSE
+  printf("Socket %d is listening\n", lfd);
+#endif
 
   while (1) {
     unsigned int clilen = kSize;
 
     if ((cfd = accept(lfd, (SADDR *)&cliaddr, &clilen)) < 0) {
       perror("accept");
+      printf("Accept error: %d\n", errno);
       exit(1);
     }
-    printf("connection established\n");
 
-    while ((nread = read(cfd, buf, BUFSIZE)) > 0) {
+#ifdef VERBOSE
+    printf("Connection established, client: %d [%d:%d]\n", cfd, ntohl(cliaddr.sin_addr.s_addr), ntohs(cliaddr.sin_port));
+#endif
+    while ((nread = read(cfd, buf, buf_size)) > 0) {
       write(1, &buf, nread);
     }
 
@@ -117,4 +127,6 @@ int main(int argc, char *argv[]) {
     }
     close(cfd);
   }
+  close(lfd);
 }
+//./tcpserver.out --buf_size 10 --port 20001

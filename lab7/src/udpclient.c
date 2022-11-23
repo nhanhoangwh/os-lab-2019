@@ -1,8 +1,6 @@
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
-#include <getopt.h>
 
 #include <arpa/inet.h>
 #include <string.h>
@@ -10,24 +8,26 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <getopt.h>
 
-//#define SERV_PORT 20001
-//#define BUFSIZE 1024
+#define VERBOSE
 #define SADDR struct sockaddr
 #define SLEN sizeof(struct sockaddr_in)
 
-int main(int argc, char **argv) {
-  
-  int SERV_PORT = -1;
-  int BUFSIZE = -1;
-  char ip[255] = {'\0'};
+int main(int argc, char *argv[]) {
+  int buf_size = -1;
+  int port = -1;
+  char ip[16] = {'\0'};
+  int sockfd, n;
+  struct sockaddr_in servaddr;
+  struct sockaddr_in cliaddr;
 
-  while (true) {
+  while (1) {
     int current_optind = optind ? optind : 1;
 
-    static struct option options[] = {{"BUFSIZE", required_argument, 0, 0},
+    static struct option options[] = {{"buf_size", required_argument, 0, 0},
                                       {"ip", required_argument, 0, 0},
-                                      {"SERV_PORT", required_argument, 0, 0},
+                                      {"port", required_argument, 0, 0},
                                       {0, 0, 0, 0}};
 
     int option_index = 0;
@@ -40,30 +40,19 @@ int main(int argc, char **argv) {
     case 0: {
       switch (option_index) {
       case 0:
-        BUFSIZE = atoi(optarg);
-        // TODO: your code here
-        if (BUFSIZE <= 0)
-            {
-                printf("Invalid arguments (BUFSIZE)!\n");
-                exit(EXIT_FAILURE);
-            }
+        if ((buf_size = atoi(optarg)) == 0) {
+          printf("Error: bad buf_size value\n");
+          return -1;
+        }
         break;
       case 1:
-        // TODO: your code here
-        if (sscanf(optarg, "%s" , ip) < 0 || strcmp(optarg, "--port") == 0)
-        {
-            printf("Invalid arguments (ip)!\n");
-            exit(EXIT_FAILURE);
-        }       
+        strcpy(ip, optarg);
         break;
       case 2:
-        SERV_PORT = atoi(optarg);
-        // TODO: your code here
-        if (SERV_PORT <= 0)
-            {
-                printf("Invalid arguments (SERV_PORT)!\n");
-                exit(EXIT_FAILURE);
-            }
+        if ((port = atoi(optarg)) == 0) {
+          printf("Error: bad port value\n");
+          return -1;
+        }
         break;
       default:
         printf("Index %d is out of options\n", option_index);
@@ -71,32 +60,27 @@ int main(int argc, char **argv) {
     } break;
 
     case '?':
-      printf("Unknown argument\n");
+      printf("Arguments error\n");
       break;
     default:
       fprintf(stderr, "getopt returned character code 0%o?\n", c);
     }
   }
-  
-  if (BUFSIZE == -1 || strcmp(ip, "\0") == 0 || SERV_PORT == -1) {
-    fprintf(stderr, "Using: %s --BUFSIZE 1024 --ip 127.0.0.1 --SERV_PORT 20001\n", argv[0]);
-    return 1;
-  }
-  
-  
-  int sockfd, n;
-  char sendline[BUFSIZE], recvline[BUFSIZE + 1];
-  struct sockaddr_in servaddr;
-  struct sockaddr_in cliaddr;
 
-  if (argc < 3) {
-    printf("Too few arguments \n");
-    exit(1);
+  if (buf_size == -1 || port == -1 || strlen(ip) == 0) {
+    fprintf(stderr, "Using: %s --buf_size [NUMBER] --port [NUMBER]\n",
+            argv[0]);
+    return -1;
   }
+  char sendline[buf_size], recvline[buf_size + 1];
+
+#ifdef VERBOSE
+  printf("buf=%d port=%d ip=%s\n", buf_size, port, ip);
+#endif
 
   memset(&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
-  servaddr.sin_port = htons(SERV_PORT);
+  servaddr.sin_port = htons(port);
 
   if (inet_pton(AF_INET, ip, &servaddr.sin_addr) < 0) {
     perror("inet_pton problem");
@@ -107,15 +91,16 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  write(1, "Enter string\n", 13);
+  write(1, "Enter your message\n", 13);
 
-  while ((n = read(0, sendline, BUFSIZE)) > 0) {
+  while ((n = read(0, sendline, buf_size)) > 0) {
     if (sendto(sockfd, sendline, n, 0, (SADDR *)&servaddr, SLEN) == -1) {
       perror("sendto problem");
       exit(1);
     }
 
-    if (recvfrom(sockfd, recvline, BUFSIZE, 0, NULL, NULL) == -1) {
+    memset(recvline, 0, sizeof(recvline));
+    if (recvfrom(sockfd, recvline, buf_size, 0, NULL, NULL) == -1) {
       perror("recvfrom problem");
       exit(1);
     }
@@ -124,3 +109,4 @@ int main(int argc, char **argv) {
   }
   close(sockfd);
 }
+//./udpclient.out --buf_size 10 --ip 127.0.0.1 --port 20001
