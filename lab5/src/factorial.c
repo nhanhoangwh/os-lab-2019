@@ -1,146 +1,161 @@
-#include <ctype.h>
-#include <stdint.h>
+#include <errno.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
+#include <ctype.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <string.h>
 #include <unistd.h>
-#include <math.h>
+#include <signal.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <getopt.h>
-#include <signal.h>
 
-struct f_args {
-  pthread_t t;
-  uint64_t begin;
-  uint64_t end;
-  int mod;
-};
-uint64_t res =1;
-pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
-typedef struct f_args f_args_t;
-
-uint64_t mul_mod(uint64_t a, uint64_t b, int mod) {
-  uint64_t result = 0;
-  a = a % mod;
-  while (b > 0) {
-    if (b % 2 == 1)
-      result = (result + a) % mod;
-    a = (a * 2) % mod;
-    b /= 2;
-    }
-  return result;
-}
-
-void factorial(void* arg)
+struct factl_args
 {
-  f_args_t* args = (f_args_t*)arg;
-	uint64_t res1 = 1;
-  for(uint64_t i=args->begin; i<= args->end; i++)
-    res1 = mul_mod(i, res1, args->mod);
-  pthread_mutex_lock(&mut);
-  res = mul_mod(res1, res, args->mod);
-  printf("begin: %lu end: %lu res %lu \n",args->begin,args->end,res);
-  pthread_mutex_unlock(&mut);
-}
+    int start;
+    int end;
+    int mod;
+    int thread_number;
+};
 
+void factorial(struct factl_args*);
+pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+int result = 1;
+int resultmod = 1;
 
 int main(int argc, char **argv) {
-uint64_t k = 0;
-uint32_t pnum = 0;
-uint32_t mod = 0;
-  while (true) {
-int current_optind = optind ? optind : 1;
+  int pnum = -1;
+  int mod = -1;
+  int k = -1;
 
-  static struct option options[] = {{ "k",required_argument, 0,0},
-                                 {"pnum", required_argument, 0, 0},
-                                 {"mod", required_argument, 0, 0},
-                                    {0,0,0}};
+  while (true) {
+    int current_optind = optind ? optind : 1;
+
+    static struct option options[] = {{"k", required_argument, 0, 'k'},
+                                      {"pnum", optional_argument, 0, 0},
+                                      {"mod", optional_argument, 0, 0},
+                                      {0, 0, 0, 0}};
+
     int option_index = 0;
-    int c = getopt_long(argc, argv, "f", options, &option_index);
-     if (c == -1) break;
+    int c = getopt_long(argc, argv, "k:", options, &option_index);
+
+    if (c == -1) break;
+
     switch (c) {
+      case 'k':
+          k = atoi(optarg);
+          if (k <= 0)
+          {
+              printf("Invalid arguments (k)!\n");
+              exit(EXIT_FAILURE);
+          }
+          break;
       case 0:
         switch (option_index) {
           case 0:
             k = atoi(optarg);
-            if(k<=0)
-                exit(0);
+            if (k <= 0)
+            {
+                printf("Invalid arguments (k)!\n");
+                exit(EXIT_FAILURE);
+            }
             break;
           case 1:
             pnum = atoi(optarg);
-            if(pnum<=0)
-                exit(0);
+            if (pnum <= 0)
+            {
+                printf("Invalid arguments (pnum)!\n");
+                exit(EXIT_FAILURE);
+            }
             break;
           case 2:
             mod = atoi(optarg);
-            if(!mod)
+            if (mod <= 0)
             {
-                printf("Wrong mod value \n");
-            return -1;
+                printf("Invalid arguments (mod)!\n");
+                exit(EXIT_FAILURE);
             }
             break;
+
           defalut:
             printf("Index %d is out of options\n", option_index);
         }
         break;
+
       case '?':
         break;
+
       default:
         printf("getopt returned character code 0%o?\n", c);
     }
   }
-  
-   if (optind < argc) {
+
+  if (optind < argc) {
     printf("Has at least one no option argument\n");
     return 1;
   }
 
-  if (mod == -1 || pnum == -1 || k == -1) {
-    printf("Usage: %s --mod \"num\" --pnum \"num\" --k \"num\" \n",
+  if (k == -1 || pnum == -1 || mod == -1) {
+    printf("Usage: %s -k \"num\" --pnum=\"num\" --mod=\"num\" \n",
            argv[0]);
     return 1;
   }
-  int a= k/2;
-  if(pnum >a)
-  {
-      printf("Too much threads, they will adopted to half array size \n");
-      pnum = a;
+  
+  
+  pthread_t *threads = malloc(pnum * sizeof(pthread_t));
+  struct factl_args* fun_args = malloc(pnum * sizeof(struct factl_args));
+  int factorial_part = k / pnum;
+  for (int i = 0; i < pnum; i++) {
+      fun_args[i].start = (i*factorial_part) + 1;
+
+      if (i != pnum - 1) {
+        fun_args[i].end = (i + 1)*factorial_part;
+      }
+      else {
+        fun_args[i].end = k;
+      }
       
-  }
-  struct timeval begin_time;
-  gettimeofday(&begin_time,NULL);
-  float c = k/(float)pnum;
-  f_args_t args[pnum];
-
-  for(int i=0;i<pnum;i++)
-  {
-    uint64_t b =round(i*c+1);
-    uint64_t e =round((i+1)*c);
-    args[i].begin = b;
-    args[i].end = e;
-    args[i].mod = mod;
-
-    if (pthread_create(&args[i].t, NULL,(void *)factorial, (void *)&args[i])) {
-      printf("Error: pthread_create failed!\n");
-      return 1;
-    }
-    
-  }
-  for(int i=0;i<pnum;i++)
-  { 
-    pthread_join(args[i].t,NULL);
+      fun_args[i].mod = mod;
+      fun_args[i].thread_number = i + 1;
+      
+      if (pthread_create(&threads[i], NULL, (void *)factorial,
+    			  (void *)&fun_args[i]) != 0) {
+        perror("pthread_create");
+        exit(1);
+      }
   }
   
-  struct timeval end_time;
-  gettimeofday(&end_time, NULL);
-  double el_time =(end_time.tv_sec - begin_time.tv_sec)*1000;
-  el_time+=(end_time.tv_usec - begin_time.tv_usec) /1000;
+  for (int i = 0; i < pnum; i++) {
+     if (pthread_join(threads[i], NULL) != 0) {
+        perror("pthread_join");
+        exit(1);
+     }
+  }
 
- 
-  printf("Total: %lu\n", res);
+  printf("\nAll done, facterial %d = %d\n",k,result);
+  printf(" %d! mod %d = %d\n", k, mod, resultmod );
+
   return 0;
 }
+
+void factorial(struct factl_args* args) {
+  int start = args->start;
+  int end = args->end;
+  int mod = args->mod;
+  int thread_number = args->thread_number;
+  
+  for (int i = start; i <= end; i++) {
+    pthread_mutex_lock(&mut);
+
+    result *= i;
+    if(resultmod != 0)
+    	resultmod = result % mod;
+    printf("i: %d --- result fact = %d ---result mod %d = %d\n", i , result, mod, resultmod);
+    
+    pthread_mutex_unlock(&mut);
+  }
+}
+

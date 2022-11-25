@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,25 +8,21 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <errno.h>
 
-
-#define VERBOSE
+//#define BUFSIZE 100
 #define SADDR struct sockaddr
 #define SIZE sizeof(struct sockaddr_in)
 
 int main(int argc, char *argv[]) {
-  int fd;
-  int nread;
-  int buf_size = -1;
+  
+  int BUFSIZE = -1;
+  char ip[255] = {'\0'};
   int port = -1;
-  char ip[16] = {'\0'};
-  struct sockaddr_in servaddr;
 
-  while (1) {
+  while (true) {
     int current_optind = optind ? optind : 1;
 
-    static struct option options[] = {{"buf_size", required_argument, 0, 0},
+    static struct option options[] = {{"BUFSIZE", required_argument, 0, 0},
                                       {"ip", required_argument, 0, 0},
                                       {"port", required_argument, 0, 0},
                                       {0, 0, 0, 0}};
@@ -40,19 +37,30 @@ int main(int argc, char *argv[]) {
     case 0: {
       switch (option_index) {
       case 0:
-        if ((buf_size = atoi(optarg)) == 0) {
-          printf("Error: bad buf_size value\n");
-          return -1;
-        }
+        BUFSIZE = atoi(optarg);
+        // TODO: your code here
+        if (BUFSIZE <= 0)
+            {
+                printf("Invalid arguments (BUFSIZE)!\n");
+                exit(EXIT_FAILURE);
+            }
         break;
       case 1:
-        strcpy(ip, optarg);
+        // TODO: your code here
+        if (sscanf(optarg, "%s" , ip) < 0 || strcmp(optarg, "--port") == 0)
+        {
+            printf("Invalid arguments (ip)!\n");
+            exit(EXIT_FAILURE);
+        }       
         break;
       case 2:
-        if ((port = atoi(optarg)) == 0) {
-          printf("Error: bad port value\n");
-          return -1;
-        }
+        port = atoi(optarg);
+        // TODO: your code here
+        if (port <= 0)
+            {
+                printf("Invalid arguments (port)!\n");
+                exit(EXIT_FAILURE);
+            }
         break;
       default:
         printf("Index %d is out of options\n", option_index);
@@ -60,32 +68,31 @@ int main(int argc, char *argv[]) {
     } break;
 
     case '?':
-      printf("Arguments error\n");
+      printf("Unknown argument\n");
       break;
     default:
       fprintf(stderr, "getopt returned character code 0%o?\n", c);
     }
   }
-
-  if (buf_size == -1 || port == -1 || strlen(ip) == 0) {
-    fprintf(stderr, "Using: %s --buf_size [NUMBER] --port [NUMBER] --ip [IPADDR]\n",
-            argv[0]);
-    return -1;
+  
+  if (BUFSIZE == -1 || strcmp(ip, "\0") == 0 || port == -1) {
+    fprintf(stderr, "Using: %s --BUFSIZE 100 --ip 127.0.0.1 --port 10050\n", argv[0]);
+    return 1;
   }
 
-#ifdef VERBOSE
-  printf("buf=%d port=%d ip=%s\n", buf_size, port, ip);
-#endif
-  char buf[buf_size];
+  int fd;
+  int nread;
+  char buf[BUFSIZE];
+  struct sockaddr_in servaddr;
+  if (argc < 3) {
+    printf("Too few arguments \n");
+    exit(1);
+  }
 
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     perror("socket creating");
     exit(1);
   }
-
-#ifdef VERBOSE
-  printf("Socket %d created\n", fd);
-#endif
 
   memset(&servaddr, 0, SIZE);
   servaddr.sin_family = AF_INET;
@@ -99,12 +106,11 @@ int main(int argc, char *argv[]) {
 
   if (connect(fd, (SADDR *)&servaddr, SIZE) < 0) {
     perror("connect");
-    printf("Connect error: %d\n", errno);
     exit(1);
   }
 
-  write(1, "Enter something:\n", 22);
-  while ((nread = read(0, buf, buf_size)) > 0) {
+  write(1, "Input message to send\n", 22);
+  while ((nread = read(0, buf, BUFSIZE)) > 0) {
     if (write(fd, buf, nread) < 0) {
       perror("write");
       exit(1);
@@ -114,4 +120,3 @@ int main(int argc, char *argv[]) {
   close(fd);
   exit(0);
 }
-//./tcpclient.out --buf_size 10 --ip 127.0.0.1 --port 20001

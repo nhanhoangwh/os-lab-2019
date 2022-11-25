@@ -1,10 +1,13 @@
+# Это комментарий, который говорит, что переменная CC указывает компилятор, используемый для сборки
 CC=gcc
+#Это еще один комментарий. Он поясняет, что в переменной CFLAGS лежат флаги, которые передаются компилятор
 CFLAGS=-I.
-all: utils find_min_max parallel_min_max sequential_min_max
-exec:  sequential_min_max
-	$(CC) -o exec_s -c exec_s.c
-	$(CC) exec_s -o exec_s.out
-	./exec_s.out 1 4
+
+all : sequential_min_max parallel_min_max exec_sequential
+
+exec_sequential : exec_sequential.c
+	$(CC) -o exec_sequential exec_sequential.c
+
 sequential_min_max : utils.o find_min_max.o utils.h find_min_max.h
 	$(CC) -o sequential_min_max find_min_max.o utils.o sequential_min_max.c $(CFLAGS)
 

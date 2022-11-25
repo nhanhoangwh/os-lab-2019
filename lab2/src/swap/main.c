@@ -12,4 +12,3 @@ int main()
 	printf("%c %c\n", ch1, ch2);
 	return 0;
 }
-
